@@ -80,7 +80,7 @@ pub fn Stream::push(
   }
   @types.validate_samples(samples, self.channels)
   if self.received + (samples.length() / self.channels).to_int64() >
-    1125899906842624L {
+    1000000000000L {
     raise @types.AudioError("stream exceeds the exact timeline limit")
   }
   let out : Array[Double] = []

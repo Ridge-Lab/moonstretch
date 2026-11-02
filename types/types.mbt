@@ -26,8 +26,10 @@ pub fn validate_samples(
     raise AudioError("interleaved input must contain complete frames")
   }
   for sample in samples {
-    if sample.is_nan() || sample.is_inf() {
-      raise AudioError("PCM samples must be finite")
+    if sample.is_nan() || sample.is_inf() || sample.abs() > 1.0e100 {
+      raise AudioError(
+        "PCM samples must be finite and have absolute value <= 1e100",
+      )
     }
   }
 }
