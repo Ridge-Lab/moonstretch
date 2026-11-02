@@ -1,0 +1,42 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "Ridge-Lab/moonstretch"
+
+import {
+  "Ridge-Lab/moonstretch/rate",
+  "Ridge-Lab/moonstretch/stretch",
+  "Ridge-Lab/moonstretch/types",
+}
+
+// Values
+pub fn process(Array[Double], Int32, Int32, tempo? : Double, pitch_semitones? : Double, rate? : Double) -> Array[Double] raise @types.AudioError
+
+// Errors
+
+// Types and methods
+pub struct Stream {
+  sample_rate : Int32
+  channels : Int32
+  tempo : Double
+  playback_rate : Double
+  stretch : @stretch.Processor
+  resampler : @rate.Processor
+  pending : Array[Double]
+  last_frame : Array[Double]
+  mut received : Int64
+  mut emitted : Int64
+  mut finished : Bool
+}
+pub fn Stream::buffered_frames(Self) -> Int32
+pub fn Stream::channels(Self) -> Int32
+pub fn Stream::finish(Self) -> Array[Double] raise @types.AudioError
+pub fn Stream::input_frames(Self) -> Int64
+pub fn Stream::latency_frames(Self) -> Int32
+pub fn Stream::new(Int32, Int32, tempo? : Double, pitch_semitones? : Double, rate? : Double) -> Self raise @types.AudioError
+pub fn Stream::output_frames(Self) -> Int64
+pub fn Stream::push(Self, Array[Double]) -> Array[Double] raise @types.AudioError
+pub fn Stream::reset(Self) -> Unit
+pub fn Stream::sample_rate(Self) -> Int32
+
+// Type aliases
+
+// Traits

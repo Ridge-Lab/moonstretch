@@ -1,0 +1,6 @@
+import {
+  "Ridge-Lab/moonstretch/types",
+  "Ridge-Lab/moonstretch/stretch",
+  "Ridge-Lab/moonstretch/rate" @rate_engine,
+  "moonbitlang/core/math",
+}
