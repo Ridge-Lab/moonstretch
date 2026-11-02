@@ -1,5 +1,5 @@
 ///|
-pub suberror AudioError {
+pub(all) suberror AudioError {
   AudioError(String)
 }
 

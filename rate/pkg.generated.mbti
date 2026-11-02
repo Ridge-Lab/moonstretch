@@ -1,0 +1,35 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "Ridge-Lab/moonstretch/rate"
+
+import {
+  "Ridge-Lab/moonstretch/types",
+}
+
+// Values
+pub fn new(Int32, Double) -> Processor raise @types.AudioError
+
+// Errors
+
+// Types and methods
+pub struct Processor {
+  channels : Int32
+  rate : Double
+  radius : Int32
+  coefficients : Array[Array[Double]]
+  mut samples : Array[Double]
+  mut base_frame : Int64
+  mut input_frames : Int64
+  mut output_frames : Int64
+  mut next_frame : Int64
+  mut fraction : Double
+  mut finished : Bool
+}
+pub fn Processor::buffered_frames(Self) -> Int32
+pub fn Processor::finish(Self) -> Array[Double]
+pub fn Processor::latency_frames(Self) -> Int32
+pub fn Processor::push(Self, Array[Double]) -> Array[Double] raise @types.AudioError
+pub fn Processor::reset(Self) -> Unit
+
+// Type aliases
+
+// Traits

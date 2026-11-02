@@ -9,7 +9,7 @@ pub fn validate_ratio(Double, Double, Double, String) -> Unit raise AudioError
 pub fn validate_samples(Array[Double], Int32) -> Unit raise AudioError
 
 // Errors
-pub suberror AudioError {
+pub(all) suberror AudioError {
   AudioError(String)
 }
 
