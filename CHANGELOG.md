@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- Fix the fresh-consumer verification script to use the non-deprecated UInt32 conversion on MoonBit 0.10.16. The audio API and algorithms are unchanged.
+
 ## 0.1.0
 
 - Original pure MoonBit WSOLA with joint multichannel alignment, bounded PCM history and deterministic chunking.

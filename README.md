@@ -23,7 +23,7 @@ MoonStretch 是用 MoonBit 实现的流式音频变速与变调库。它处理�
 作为库安装：
 
 ```sh
-moon add Ridge-Lab/moonstretch@0.1.0
+moon add Ridge-Lab/moonstretch@0.1.1
 ```
 
 在调用方的 `moon.pkg` 中加入：
