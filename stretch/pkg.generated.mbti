@@ -1,0 +1,37 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "Ridge-Lab/moonstretch/stretch"
+
+import {
+  "Ridge-Lab/moonstretch/types",
+}
+
+// Values
+pub fn new(Int32, Int32, Double) -> Processor raise @types.AudioError
+
+// Errors
+
+// Types and methods
+pub struct Processor {
+  channels : Int32
+  tempo : Double
+  hop : Int32
+  search : Int32
+  mut input : Array[Double]
+  mut base : Int64
+  mut received : Int64
+  mut emitted : Int64
+  mut tail : Array[Double]
+  mut started : Bool
+  mut finished : Bool
+}
+pub fn Processor::buffered_frames(Self) -> Int32
+pub fn Processor::finish(Self) -> Array[Double]
+pub fn Processor::input_frames(Self) -> Int64
+pub fn Processor::latency_frames(Self) -> Int32
+pub fn Processor::output_frames(Self) -> Int64
+pub fn Processor::push(Self, Array[Double]) -> Array[Double] raise @types.AudioError
+pub fn Processor::reset(Self) -> Unit
+
+// Type aliases
+
+// Traits
