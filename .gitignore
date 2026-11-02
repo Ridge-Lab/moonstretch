@@ -5,3 +5,4 @@
 __pycache__/
 /web/engine.js
 /web/engine.wasm
+/web/licenses/

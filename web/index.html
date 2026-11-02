@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="MoonStretch：用纯 MoonBit 处理 PCM 音频，独立调整速度与音调。音频仅在浏览器本地处理。">
+  <meta name="color-scheme" content="light">
+  <title>MoonStretch · 音频变速与移调</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.mjs"></script>
+</head>
+<body>
+  <div class="page-shell">
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="MoonStretch 首页">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 13v6m5-13v20m6-16v12m6-18v24m5-15v6"/></svg>
+        <span>MoonStretch</span><span class="version">0.1.0</span>
+      </a>
+      <nav aria-label="项目链接"><a href="https://github.com/Ridge-Lab/moonstretch">源代码 <span aria-hidden="true">↗</span></a><a href="https://mooncakes.io/docs/Ridge-Lab/moonstretch">Mooncakes <span aria-hidden="true">↗</span></a></nav>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="title">
+        <div><p class="eyebrow">PURE MOONBIT · AUDIO PROCESSING</p><h1 id="title">速度与音调，<br class="mobile-break">分别调整。</h1><p class="lead">放慢旋律练习，调整伴奏音高，或让音频适合目标时长。<br class="desktop-break">试听处理前后的差别，再把结果保存为 WAV。</p></div>
+        <div class="local-note"><span class="local-dot" aria-hidden="true"></span><div><strong>音频留在本地</strong><span>浏览器处理，无需上传</span></div></div>
+      </section>
+
+      <div class="workspace">
+        <aside class="controls" aria-label="音源与参数">
+          <section class="panel source-panel">
+            <div class="section-heading"><span class="step">01</span><h2>选择音源</h2><span class="caption">SOURCE</span></div>
+            <label class="drop-zone" id="drop-zone" for="audio-file">
+              <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 22V5m-6 6 6-6 6 6M5 21v6h22v-6"/></svg>
+              <strong>选择或拖入音频</strong><span>WAV、MP3 等浏览器可解码格式</span>
+            </label>
+            <input id="audio-file" class="file-input" type="file" accept="audio/*,.wav,.flac,.ogg,.mp3,.m4a,.aac" aria-label="选择本地音频文件">
+            <p class="small-note">最长 120 秒。高采样率、多声道及慢速输出另受浏览器内存限制。</p>
+            <p class="demo-heading">也可以从一个小样开始</p>
+            <div class="demo-buttons"><button type="button" data-demo="melody">短旋律 <span>4s</span></button><button type="button" data-demo="click">节拍 <span>120 BPM</span></button><button type="button" data-demo="tone">正弦 <span>440 Hz</span></button></div>
+          </section>
+
+          <section class="panel parameter-panel">
+            <div class="section-heading"><span class="step">02</span><h2>调整参数</h2><button id="reset-controls" class="text-button" type="button">重置</button></div>
+            <div class="parameter"><div class="parameter-title"><label for="tempo">速度 <span>Tempo</span></label><output id="tempo-value" for="tempo">1.00×</output></div><input id="tempo" type="range" min="0.5" max="2" step="0.05" value="1"><div class="range-labels"><span>0.5× · 更慢</span><span>2× · 更快</span></div><p>改变时长，保持音高。</p></div>
+            <div class="parameter"><div class="parameter-title"><label for="pitch">音调 <span>Pitch</span></label><output id="pitch-value" for="pitch">0 半音</output></div><input id="pitch" type="range" min="-12" max="12" step="0.5" value="0"><div class="range-labels"><span>−12 · 低八度</span><span>+12 · 高八度</span></div><p>改变音高，保持时长。</p></div>
+            <div class="parameter"><div class="parameter-title"><label for="rate">播放倍率 <span>Rate</span></label><output id="rate-value" for="rate">1.00×</output></div><input id="rate" type="range" min="0.5" max="2" step="0.05" value="1"><div class="range-labels"><span>0.5×</span><span>2×</span></div><p>同时改变速度与音高，如同调整唱片转速。</p></div>
+            <div class="prediction"><span>预计输出时长</span><strong id="predicted-duration">—</strong></div>
+            <button id="process" class="primary-button" type="button" disabled><span>处理音频</span><span aria-hidden="true">↗</span></button>
+            <button id="cancel" class="cancel-button" type="button" hidden>取消处理</button>
+          </section>
+        </aside>
+
+        <section class="results" aria-label="试听与结果">
+          <div id="status" class="status-bar" role="status" aria-live="polite"><span class="status-icon" aria-hidden="true">○</span><span id="status-text">选择本地音频，或点选左侧小样开始。</span></div>
+          <article class="panel audio-card">
+            <div class="audio-heading"><div><p class="eyebrow">ORIGINAL</p><h2>原始音频</h2></div><span id="source-badge" class="badge">等待音源</span></div>
+            <p id="source-name" class="filename">还没有选择文件</p>
+            <div class="waveform-wrap"><canvas id="source-wave" aria-label="原始音频第一声道波形"></canvas><span class="wave-empty" id="source-empty">从一段声音开始</span><div class="wave-time"><span>0:00</span><span id="source-end">—</span></div></div>
+            <audio id="source-audio" controls preload="metadata" aria-label="播放原始音频"></audio>
+            <div class="audio-meta" id="source-meta"><span>采样率 —</span><span>声道 —</span><span>时长 —</span></div>
+          </article>
+
+          <div class="flow-indicator" aria-hidden="true"><span></span><b>MoonBit DSP</b><span></span><i>↓</i></div>
+
+          <article class="panel audio-card output-card" id="output-card">
+            <div class="audio-heading"><div><p class="eyebrow">PROCESSED</p><h2>处理结果</h2></div><span id="output-badge" class="badge">尚未处理</span></div>
+            <p id="output-description" class="filename">参数就绪后，点击「处理音频」。</p>
+            <div class="waveform-wrap"><canvas id="output-wave" aria-label="处理后音频第一声道波形"></canvas><span class="wave-empty" id="output-empty">这里会显示处理后的波形</span><div class="wave-time"><span>0:00</span><span id="output-end">—</span></div></div>
+            <audio id="output-audio" controls preload="metadata" aria-label="播放处理后的音频"></audio>
+            <div class="measurement-grid"><div><span>输出时长</span><strong id="actual-duration">—</strong></div><div><span>DSP 处理用时</span><strong id="processing-time">—</strong></div><div><span>输出帧数</span><strong id="output-frames">—</strong></div></div>
+            <a id="download" class="download-button" href="#" aria-disabled="true" tabindex="-1">下载 WAV <span>24-bit PCM</span><span aria-hidden="true">↓</span></a>
+            <p class="small-note export-note">导出时超出 ±1 的采样值会被裁剪；浮点 DSP 本身不裁剪。</p>
+          </article>
+        </section>
+      </div>
+
+      <section class="details-section" aria-label="实现与使用范围">
+        <div><h2>可以听见的运算</h2><p>WSOLA 在相近波形间寻找合适的衔接位置，以保留音高；带抗混叠滤波的 sinc 重采样改变频率。两者组合，独立控制速度与移调。</p></div>
+        <div><h2>适用范围</h2><p>适合语音变速、练习与一般素材处理。极端参数及复杂打击乐可能产生可闻伪影；不提供共振峰保持、自动修音或音源分离。</p></div>
+        <details><summary>处理细节与限制</summary><p>输入使用浏览器解码后的采样率，支持 8–192 kHz、1–8 声道。最长 120 秒，最多 400 万个输入、800 万个预计输出采样值（声道计入）。</p><p>时长约为原始时长 ÷ (Tempo × Rate)；音高倍率为 2<sup>Pitch / 12</sup> × Rate。处理完成后显示实际帧数。波形展示第一声道，两个播放器始终以正常速度播放。</p><p>音频运算和 WAV 编码由 MoonBit 编译模块执行；Worker 负责后台调度，Web Audio 负责解码。三个小样由本页公式生成，不含第三方音频。浏览器示例是整段处理；库另提供持续分块处理接口。</p></details>
+      </section>
+    </main>
+    <footer><span>MoonStretch <span class="footer-separator">/</span> Built with MoonBit</span><span><a href="licenses/THIRD_PARTY.md">开源与依赖许可</a> <span class="footer-separator">/</span> <a href="https://github.com/Ridge-Lab/moonstretch">文档与实现 ↗</a></span></footer>
+  </div>
+</body>
+</html>
