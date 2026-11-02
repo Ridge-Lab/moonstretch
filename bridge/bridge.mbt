@@ -88,7 +88,7 @@ pub fn run(request : String) -> String {
     }
     result.stringify()
   } catch {
-    error => ({ "error": error.to_string() } : Json).stringify()
+    error => ({ "error": explain(error) } : Json).stringify()
   }
 }
 
@@ -110,7 +110,7 @@ pub fn transform_pcm(
     pitch_semitones~,
     rate~,
   ) catch {
-    error => abort((error : Error).to_string())
+    error => fail(explain(error))
   }
 }
 
@@ -123,7 +123,7 @@ pub fn transform_wav(
   rate : Double,
 ) -> Bytes {
   @wav.transform(input, tempo~, pitch_semitones~, rate~) catch {
-    error => abort((error : Error).to_string())
+    error => fail(explain(error))
   }
 }
 
@@ -135,6 +135,24 @@ pub fn encode_wav(
   channels : Int32,
 ) -> Bytes {
   @wav.encode(samples, sample_rate, channels) catch {
-    error => abort((error : Error).to_string())
+    error => fail(explain(error))
+  }
+}
+
+///|
+/// Preserve diagnostics across the JavaScript boundary. Native/Wasm hosts use
+/// the explicit JSON interface when a recoverable error value is required.
+fn[T] fail(message : String) -> T {
+  host_fail(message)
+  abort(message)
+}
+
+///|
+/// Error::to_string identifies a suberror constructor but does not include
+/// its String payload. Keep the actionable validation message at the host edge.
+fn explain(error : Error) -> String {
+  match error {
+    @types.AudioError(message) => message
+    _ => error.to_string()
   }
 }

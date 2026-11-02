@@ -6,6 +6,7 @@ import {
 }
 
 options(
+  targets: { "js.mbt": [ "js" ], "others.mbt": [ "native", "wasm", "wasm-gc" ] },
   link: {
     "js": {
       "exports": [ "run", "transform_pcm", "transform_wav", "encode_wav" ],
