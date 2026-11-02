@@ -69,6 +69,9 @@ jobs:
       - name: Independent PCM measurements
         if: matrix.target == 'js'
         run: python scripts/audio_quality.py --output work/quality-windows.json -- node scripts/quality_driver.mjs
+      - name: WAV format and command-line interoperability
+        if: matrix.target == 'js'
+        run: node scripts/verify_wav.mjs
       - uses: actions/upload-artifact@v4
         if: matrix.target == 'js'
         with:
@@ -97,9 +100,29 @@ jobs:
           dpkg-query -W soundstretch libsoundtouch1
       - run: moon update
       - run: moon build --target js --release --deny-warn
+      - name: WAV format and command-line interoperability
+        run: node scripts/verify_wav.mjs
       - name: Measure duration, pitch, channels, streaming and alias rejection
         run: python scripts/audio_quality.py --soundstretch soundstretch --output work/quality-linux.json -- node scripts/quality_driver.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: quality-linux
           path: work/quality-linux.json
+
+  published-package:
+    name: Install public Mooncakes package
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: hustcer/setup-moonbit@v1.22
+        with:
+          version: "0.10.16+b1a0e846e"
+          core-version: "0.10.16+b1a0e846e"
+      - run: python scripts/verify_release.py --targets js wasm wasm-gc native
