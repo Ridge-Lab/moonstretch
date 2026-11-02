@@ -1,0 +1,19 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "Ridge-Lab/moonstretch/bridge"
+
+// Values
+pub fn encode_wav(Array[Double], Int32, Int32) -> Bytes
+
+pub fn run(String) -> String
+
+pub fn transform_pcm(Array[Double], Int32, Int32, Double, Double, Double) -> Array[Double]
+
+pub fn transform_wav(Bytes, Double, Double, Double) -> Bytes
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

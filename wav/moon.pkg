@@ -1,0 +1,5 @@
+import {
+  "Ridge-Lab/moonstretch",
+  "Ridge-Lab/moonstretch/types",
+  "Ridge-Lab/moonwavkit" @wavkit,
+}

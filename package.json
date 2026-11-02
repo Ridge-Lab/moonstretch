@@ -1,0 +1,10 @@
+{
+  "name": "moonstretch-host-tools",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "web:build": "node scripts/build_web.mjs",
+    "web:serve": "node scripts/serve_web.mjs"
+  }
+}

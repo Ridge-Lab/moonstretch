@@ -1,0 +1,19 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "Ridge-Lab/moonstretch/wav"
+
+import {
+  "Ridge-Lab/moonstretch/types",
+}
+
+// Values
+pub fn encode(Array[Double], Int32, Int32) -> Bytes raise @types.AudioError
+
+pub fn transform(Bytes, tempo? : Double, pitch_semitones? : Double, rate? : Double) -> Bytes raise @types.AudioError
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

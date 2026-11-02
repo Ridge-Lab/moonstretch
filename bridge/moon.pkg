@@ -1,0 +1,15 @@
+import {
+  "Ridge-Lab/moonstretch",
+  "Ridge-Lab/moonstretch/types",
+  "Ridge-Lab/moonstretch/wav",
+  "moonbitlang/core/json",
+}
+
+options(
+  link: {
+    "js": {
+      "exports": [ "run", "transform_pcm", "transform_wav", "encode_wav" ],
+      "format": "esm",
+    },
+  },
+)
