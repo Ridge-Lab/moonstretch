@@ -1,6 +1,8 @@
 # 第三方依赖与算法来源
 
-MoonStretch 的源码采用根目录 [MIT License](LICENSE)。时间伸缩、重采样、组合流及独立数值验证为本项目实现；本项目不是 SoundTouch 或其他音频库的代码移植。
+MoonStretch 的源码采用根目录 [MIT License](LICENSE)。时间伸缩、重采样、连续控制、FIFO、能量包络 BPM 估计及独立数值验证为本项目实现；本项目不是 SoundTouch 或其他音频库的代码移植。
+
+MoonMel 的接口及源码仅用于核查生态已有能力，未移植其 phase-vocoder、time_stretch、pitch_shift 或节拍分析实现。原有生态对照遗漏已在 `docs/ECOSYSTEM.md` 更正。浏览器的 Worker 与 AudioWorklet 负责本地调度及 PCM 播放，不替代 MoonBit DSP。
 
 ## 运行依赖
 

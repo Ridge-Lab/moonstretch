@@ -1,0 +1,44 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "Ridge-Lab/moonstretch/bpm"
+
+import {
+  "Ridge-Lab/moonstretch/types",
+}
+
+// Values
+pub fn analyze(Array[Double], Int32, Int32, min_bpm? : Double, max_bpm? : Double) -> Estimate? raise @types.AudioError
+
+// Errors
+
+// Types and methods
+pub struct Detector {
+  sample_rate : Int32
+  channels : Int32
+  min_bpm : Double
+  max_bpm : Double
+  envelope : Array[Double]
+  mut write_position : Int32
+  mut envelope_count : Int32
+  mut phase : Int32
+  mut bin_frames : Int32
+  mut bin_energy : Double
+  mut received : Int64
+  mut finished : Bool
+}
+pub fn Detector::buffered_envelope_frames(Self) -> Int32
+pub fn Detector::estimate(Self) -> Estimate?
+pub fn Detector::finish(Self) -> Estimate?
+pub fn Detector::input_frames(Self) -> Int64
+pub fn Detector::new(Int32, Int32, min_bpm? : Double, max_bpm? : Double, window_seconds? : Int32) -> Self raise @types.AudioError
+pub fn Detector::push(Self, Array[Double]) -> Unit raise @types.AudioError
+pub fn Detector::reset(Self) -> Unit
+
+pub(all) struct Estimate {
+  bpm : Double
+  confidence : Double
+  analyzed_seconds : Double
+}
+
+// Type aliases
+
+// Traits

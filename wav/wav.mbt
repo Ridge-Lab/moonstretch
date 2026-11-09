@@ -1,4 +1,25 @@
 ///|
+pub(all) struct Audio {
+  samples : Array[Double]
+  sample_rate : Int32
+  channels : Int32
+}
+
+///|
+/// Decode one complete supported RIFF/WAVE container with validated PCM.
+pub fn decode(input : Bytes) -> Audio raise @types.AudioError {
+  let bytes = input.to_array().map(b => b.to_int())
+  let source = decode_with_empty_support(bytes, checked_data_offset(bytes))
+  @types.validate_format(source.sample_rate, source.channels)
+  @types.validate_samples(source.samples, source.channels)
+  {
+    samples: source.samples,
+    sample_rate: source.sample_rate,
+    channels: source.channels,
+  }
+}
+
+///|
 /// WAV integration using the existing MoonWavKit decoder and encoder.
 /// Container framing checks and the documented MoonWavKit 0.1.3 compatibility
 /// shims below do not implement a second sample codec. Output is 24-bit PCM.
@@ -7,10 +28,9 @@ pub fn transform(
   tempo~ : Double = 1.0,
   pitch_semitones~ : Double = 0.0,
   rate~ : Double = 1.0,
+  quality~ : @moonstretch.Quality = @moonstretch.Balanced,
 ) -> Bytes raise @types.AudioError {
-  let bytes = input.to_array().map(b => b.to_int())
-  let data_offset = checked_data_offset(bytes)
-  let source = decode_with_empty_support(bytes, data_offset)
+  let source = decode(input)
   let output = @moonstretch.process(
     source.samples,
     source.sample_rate,
@@ -18,6 +38,7 @@ pub fn transform(
     tempo~,
     pitch_semitones~,
     rate~,
+    quality~,
   )
   encode(output, source.sample_rate, source.channels)
 }

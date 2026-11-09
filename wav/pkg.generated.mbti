@@ -2,17 +2,25 @@
 package "Ridge-Lab/moonstretch/wav"
 
 import {
+  "Ridge-Lab/moonstretch",
   "Ridge-Lab/moonstretch/types",
 }
 
 // Values
+pub fn decode(Bytes) -> Audio raise @types.AudioError
+
 pub fn encode(Array[Double], Int32, Int32) -> Bytes raise @types.AudioError
 
-pub fn transform(Bytes, tempo? : Double, pitch_semitones? : Double, rate? : Double) -> Bytes raise @types.AudioError
+pub fn transform(Bytes, tempo? : Double, pitch_semitones? : Double, rate? : Double, quality? : @moonstretch.Quality) -> Bytes raise @types.AudioError
 
 // Errors
 
 // Types and methods
+pub(all) struct Audio {
+  samples : Array[Double]
+  sample_rate : Int32
+  channels : Int32
+}
 
 // Type aliases
 

@@ -5,12 +5,14 @@ let phase_count : Int32 = 512
 ///|
 /// Continuous interleaved PCM rate conversion. Rate is input frames advanced
 /// per output frame: 2 halves duration and doubles pitch. All channels share
-/// the same phase and filter. Rate 1 passes samples through exactly.
+/// the same phase and filter. Fixed rate 1 passes samples through immediately;
+/// dynamic rate 1 retains lookahead and is exact at integral sample phases.
 pub struct Processor {
   channels : Int32
-  rate : Double
-  radius : Int32
-  coefficients : Array[Array[Double]]
+  mut rate : Double
+  mut radius : Int32
+  mut coefficients : Array[Array[Double]]
+  dynamic : Bool
   mut samples : Array[Double]
   mut base_frame : Int64
   mut input_frames : Int64
@@ -23,16 +25,13 @@ pub struct Processor {
 ///|
 /// Original Blackman-windowed sinc converter. Downsampling lowers the cutoff
 /// and widens the kernel in input frames, preserving its transition width.
-pub fn new(
-  channels : Int32,
-  rate : Double,
-) -> Processor raise @types.AudioError {
-  if channels < 1 || channels > 8 {
-    raise @types.AudioError("channels must be between 1 and 8")
-  }
-  @types.validate_ratio(rate, 0.25, 4.0, "rate")
+fn build_filter(rate : Double, dynamic : Bool) -> (Int32, Array[Array[Double]]) {
   let stretch = if rate > 1.0 { rate } else { 1.0 }
-  let radius = if rate == 1.0 { 0 } else { @math.ceil(48.0 * stretch).to_int() }
+  let radius = if rate == 1.0 && !dynamic {
+    0
+  } else {
+    @math.ceil(48.0 * stretch).to_int()
+  }
   let cutoff = 0.9 / stretch
   let coefficients : Array[Array[Double]] = []
   if radius > 0 {
@@ -66,11 +65,28 @@ pub fn new(
       coefficients.push(row)
     }
   }
+  (radius, coefficients)
+}
+
+///|
+/// Dynamic processors keep the largest supported filter history even when
+/// the current rate is one, so later changes can reuse continuous phase.
+pub fn new(
+  channels : Int32,
+  rate : Double,
+  dynamic~ : Bool = false,
+) -> Processor raise @types.AudioError {
+  if channels < 1 || channels > 8 {
+    raise @types.AudioError("channels must be between 1 and 8")
+  }
+  @types.validate_ratio(rate, 0.25, 4.0, "rate")
+  let (radius, coefficients) = build_filter(rate, dynamic)
   {
     channels,
     rate,
     radius,
     coefficients,
+    dynamic,
     samples: [],
     base_frame: 0L,
     input_frames: 0L,
@@ -78,6 +94,25 @@ pub fn new(
     next_frame: 0L,
     fraction: 0.0,
     finished: false,
+  }
+}
+
+///|
+/// Change the increment and anti-alias filter for the next emitted frame.
+/// Retain the fractional phase and PCM history; never flush or restart.
+pub fn Processor::set_rate(
+  self : Processor,
+  rate : Double,
+) -> Unit raise @types.AudioError {
+  @types.validate_ratio(rate, 0.25, 4.0, "rate")
+  if !self.dynamic || self.finished {
+    raise @types.AudioError("set_rate requires an unfinished dynamic processor")
+  }
+  if rate != self.rate {
+    let (radius, coefficients) = build_filter(rate, true)
+    self.rate = rate
+    self.radius = radius
+    self.coefficients = coefficients
   }
 }
 
@@ -99,7 +134,7 @@ pub fn Processor::push(
     raise @types.AudioError("stream exceeds the supported frame counter range")
   }
   self.input_frames += frames
-  if self.rate == 1.0 {
+  if self.rate == 1.0 && !self.dynamic {
     self.output_frames += frames
     return samples.copy()
   }
@@ -110,8 +145,9 @@ pub fn Processor::push(
 }
 
 ///|
-/// Finish using endpoint extension. Final length is nearest(input_frames /
-/// rate), with half frames rounded upward. Repeated finish calls return empty.
+/// Finish using endpoint extension. Fixed controls yield nearest(input/rate),
+/// with half frames rounded upward; dynamic controls drain the unconsumed
+/// source distance at the current rate. Repeated finish calls return empty.
 pub fn Processor::finish(self : Processor) -> Array[Double] {
   if self.finished {
     return []
@@ -149,12 +185,17 @@ pub fn Processor::latency_frames(self : Processor) -> Int32 {
 ///|
 fn Processor::drain(self : Processor, finishing : Bool) -> Array[Double] {
   let output : Array[Double] = []
-  if self.rate == 1.0 || self.input_frames == 0L {
+  if (self.rate == 1.0 && !self.dynamic) || self.input_frames == 0L {
     return output
   }
-  let target = (self.input_frames.to_double() / self.rate + 0.5)
-    .floor()
-    .to_int64()
+  let target = if self.dynamic {
+    let remaining = (self.input_frames - self.next_frame).to_double() -
+      self.fraction
+    self.output_frames +
+    (remaining / self.rate + 0.5).floor().max(0.0).to_int64()
+  } else {
+    (self.input_frames.to_double() / self.rate + 0.5).floor().to_int64()
+  }
   while self.output_frames < target &&
         (
           finishing ||
@@ -169,17 +210,21 @@ fn Processor::drain(self : Processor, finishing : Bool) -> Array[Double] {
     let last = self.samples.length() / self.channels - 1
     for channel = 0; channel < self.channels; channel = channel + 1 {
       let mut value = 0.0
-      for tap = 0; tap < low.length(); tap = tap + 1 {
-        let source_frame = center + tap - self.radius
-        let source_frame = if source_frame < 0 {
-          0
-        } else if source_frame > last {
-          last
-        } else {
-          source_frame
+      if self.rate == 1.0 && self.fraction == 0.0 {
+        value = self.samples[center.max(0).min(last) * self.channels + channel]
+      } else {
+        for tap = 0; tap < low.length(); tap = tap + 1 {
+          let source_frame = center + tap - self.radius
+          let source_frame = if source_frame < 0 {
+            0
+          } else if source_frame > last {
+            last
+          } else {
+            source_frame
+          }
+          let weight = low[tap] + mix * (high[tap] - low[tap])
+          value += self.samples[source_frame * self.channels + channel] * weight
         }
-        let weight = low[tap] + mix * (high[tap] - low[tap])
-        value += self.samples[source_frame * self.channels + channel] * weight
       }
       output.push(value)
     }
@@ -192,7 +237,8 @@ fn Processor::drain(self : Processor, finishing : Bool) -> Array[Double] {
     self.fraction = advanced - whole.to_double()
   }
   if !finishing {
-    let earliest = self.next_frame - self.radius.to_int64()
+    let history = if self.dynamic { 192 } else { self.radius }
+    let earliest = self.next_frame - history.to_int64()
     if earliest > self.base_frame {
       let removable = (earliest - self.base_frame).to_int()
       let available = self.samples.length() / self.channels

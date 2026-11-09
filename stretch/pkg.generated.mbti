@@ -6,16 +6,20 @@ import {
 }
 
 // Values
-pub fn new(Int32, Int32, Double) -> Processor raise @types.AudioError
+pub fn new(Int32, Int32, Double, hop_ms? : Int32, search_ms? : Int32, quick? : Bool, dynamic? : Bool) -> Processor raise @types.AudioError
 
 // Errors
 
 // Types and methods
 pub struct Processor {
   channels : Int32
-  tempo : Double
+  mut tempo : Double
   hop : Int32
   search : Int32
+  quick : Bool
+  dynamic : Bool
+  mut analysis_frame : Int64
+  mut analysis_fraction : Double
   mut input : Array[Double]
   mut base : Int64
   mut received : Int64
@@ -31,6 +35,7 @@ pub fn Processor::latency_frames(Self) -> Int32
 pub fn Processor::output_frames(Self) -> Int64
 pub fn Processor::push(Self, Array[Double]) -> Array[Double] raise @types.AudioError
 pub fn Processor::reset(Self) -> Unit
+pub fn Processor::set_tempo(Self, Double) -> Unit raise @types.AudioError
 
 // Type aliases
 

@@ -2,6 +2,7 @@ import {
   "Ridge-Lab/moonstretch",
   "Ridge-Lab/moonstretch/types",
   "Ridge-Lab/moonstretch/wav",
+  "Ridge-Lab/moonstretch/bpm",
   "moonbitlang/core/json",
 }
 
@@ -9,7 +10,25 @@ options(
   targets: { "js.mbt": [ "js" ], "others.mbt": [ "native", "wasm", "wasm-gc" ] },
   link: {
     "js": {
-      "exports": [ "run", "transform_pcm", "transform_wav", "encode_wav" ],
+      "exports": [
+        "run",
+        "transform_pcm",
+        "transform_pcm_quality",
+        "transform_wav",
+        "encode_wav",
+        "live_create",
+        "live_put",
+        "live_read",
+        "live_finish",
+        "live_clear",
+        "live_set_controls",
+        "live_stats",
+        "analyze_bpm",
+        "wav_decode",
+        "wav_samples",
+        "wav_sample_rate",
+        "wav_channels",
+      ],
       "format": "esm",
     },
   },

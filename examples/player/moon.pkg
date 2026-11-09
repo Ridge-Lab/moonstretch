@@ -1,0 +1,6 @@
+import {
+  "Ridge-Lab/moonstretch",
+  "moonbitlang/core/math",
+}
+
+pkgtype(kind: "executable")

@@ -1,14 +1,45 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "Ridge-Lab/moonstretch/bridge"
 
+import {
+  "Ridge-Lab/moonstretch",
+  "Ridge-Lab/moonstretch/wav",
+}
+
 // Values
+pub fn analyze_bpm(Array[Double], Int32, Int32, Double, Double) -> String
+
 pub fn encode_wav(Array[Double], Int32, Int32) -> Bytes
+
+pub fn live_clear(@moonstretch.Processor) -> Unit
+
+pub fn live_create(Int32, Int32, Double, Double, Double, String) -> @moonstretch.Processor
+
+pub fn live_finish(@moonstretch.Processor) -> Unit
+
+pub fn live_put(@moonstretch.Processor, Array[Double]) -> Unit
+
+pub fn live_read(@moonstretch.Processor, Int32) -> Array[Double]
+
+pub fn live_set_controls(@moonstretch.Processor, Double, Double, Double) -> Unit
+
+pub fn live_stats(@moonstretch.Processor) -> String
 
 pub fn run(String) -> String
 
 pub fn transform_pcm(Array[Double], Int32, Int32, Double, Double, Double) -> Array[Double]
 
+pub fn transform_pcm_quality(Array[Double], Int32, Int32, Double, Double, Double, String) -> Array[Double]
+
 pub fn transform_wav(Bytes, Double, Double, Double) -> Bytes
+
+pub fn wav_channels(@wav.Audio) -> Int32
+
+pub fn wav_decode(Bytes) -> @wav.Audio
+
+pub fn wav_sample_rate(@wav.Audio) -> Int32
+
+pub fn wav_samples(@wav.Audio) -> Array[Double]
 
 // Errors
 

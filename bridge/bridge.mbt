@@ -102,6 +102,7 @@ pub fn transform_pcm(
   pitch_semitones : Double,
   rate : Double,
 ) -> Array[Double] {
+  host_format(sample_rate, channels)
   @moonstretch.process(
     samples,
     sample_rate,
@@ -134,6 +135,7 @@ pub fn encode_wav(
   sample_rate : Int32,
   channels : Int32,
 ) -> Bytes {
+  host_format(sample_rate, channels)
   @wav.encode(samples, sample_rate, channels) catch {
     error => fail(explain(error))
   }

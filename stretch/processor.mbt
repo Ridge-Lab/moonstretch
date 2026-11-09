@@ -1,11 +1,16 @@
 ///|
 /// Streaming WSOLA. Channels share one alignment offset. The analysis clock
-/// is anchored to output frames rather than previous correlation winners.
+/// follows requested ratios rather than previous correlation winners. Dynamic
+/// streams integrate ratio changes without recalculating their earlier clock.
 pub struct Processor {
   channels : Int32
-  tempo : Double
+  mut tempo : Double
   hop : Int32
   search : Int32
+  quick : Bool
+  dynamic : Bool
+  mut analysis_frame : Int64
+  mut analysis_fraction : Double
   mut input : Array[Double]
   mut base : Int64
   mut received : Int64
@@ -21,14 +26,25 @@ pub fn new(
   sample_rate : Int32,
   channels : Int32,
   tempo : Double,
+  hop_ms~ : Int32 = 20,
+  search_ms~ : Int32 = 10,
+  quick~ : Bool = true,
+  dynamic~ : Bool = false,
 ) -> Processor raise @types.AudioError {
   @types.validate_format(sample_rate, channels)
   @types.validate_ratio(tempo, 0.25, 4.0, "tempo")
+  if hop_ms < 1 || hop_ms > 80 || search_ms < 0 || search_ms > 40 {
+    raise @types.AudioError("hop_ms must be 1..80 and search_ms 0..40")
+  }
   {
     channels,
     tempo,
-    hop: sample_rate / 50,
-    search: sample_rate / 100,
+    hop: (sample_rate * hop_ms / 1000).max(1),
+    search: sample_rate * search_ms / 1000,
+    quick,
+    dynamic,
+    analysis_frame: 0L,
+    analysis_fraction: 0.0,
     input: [],
     base: 0L,
     received: 0L,
@@ -40,22 +56,42 @@ pub fn new(
 }
 
 ///|
+/// Update the ratio without flushing the overlap or restarting the analysis
+/// clock. Applies to the next analysis hop, including queued lookahead.
+pub fn Processor::set_tempo(
+  self : Processor,
+  tempo : Double,
+) -> Unit raise @types.AudioError {
+  @types.validate_ratio(tempo, 0.25, 4.0, "tempo")
+  if !self.dynamic || self.finished {
+    raise @types.AudioError(
+      "set_tempo requires an unfinished dynamic processor",
+    )
+  }
+  if tempo != self.tempo {
+    self.tempo = tempo
+  }
+}
+
+///|
 /// Retained PCM including the overlap tail, measured in frames.
 pub fn Processor::buffered_frames(self : Processor) -> Int32 {
   (self.input.length() + self.tail.length()) / self.channels
 }
 
 ///|
-/// Startup lookahead in input frames; identity has no latency.
+/// Conservative lookahead for startup and steady analysis, in input frames.
+/// Fixed identity has no lookahead; live identity preserves its overlap state.
 pub fn Processor::latency_frames(self : Processor) -> Int32 {
-  if self.tempo == 1.0 {
+  if self.tempo == 1.0 && !self.dynamic {
     0
   } else {
     let clock = @math.ceil(self.hop.to_double() * self.tempo).to_int()
-    if clock > self.hop * 2 {
+    let window = self.search + self.hop * 2
+    if clock > window {
       clock
     } else {
-      self.hop * 2
+      window
     }
   }
 }
@@ -78,6 +114,8 @@ pub fn Processor::reset(self : Processor) -> Unit {
   self.base = 0L
   self.received = 0L
   self.emitted = 0L
+  self.analysis_frame = 0L
+  self.analysis_fraction = 0.0
   self.started = false
   self.finished = false
 }
@@ -98,7 +136,11 @@ fn Processor::sample(
 
 ///|
 fn Processor::nominal(self : Processor) -> Int64 {
-  @math.floor(self.emitted.to_double() * self.tempo + 0.5).to_int64()
+  if self.dynamic {
+    self.analysis_frame + (self.analysis_fraction + 0.5).floor().to_int64()
+  } else {
+    @math.floor(self.emitted.to_double() * self.tempo + 0.5).to_int64()
+  }
 }
 
 ///|
@@ -194,8 +236,13 @@ fn Processor::choose(self : Processor, nominal : Int64) -> Int64 {
   if scale == 0.0 {
     return nominal
   }
-  let stride = (self.hop + 127) / 128
-  let step = (self.search * 2 + 95) / 96
+  // Both modes use a bounded coarse search followed by local full-overlap
+  // refinement. The detailed mode doubles coarse density, not an exhaustive
+  // scan of every offset at the highest supported sample rates.
+  let density = if self.quick { 128 } else { 256 }
+  let candidates = if self.quick { 96 } else { 192 }
+  let stride = (self.hop + density - 1) / density
+  let step = ((self.search * 2 + candidates - 1) / candidates).max(1)
   let ref_coarse = self.reference_energy(stride, scale)
   let mut best = nominal
   let mut best_score = self.score(nominal, stride, scale, ref_coarse)
@@ -297,6 +344,12 @@ fn Processor::emit(
   })
   self.started = true
   self.emitted = self.emitted + frames.to_int64()
+  if self.dynamic {
+    let advance = self.analysis_fraction + frames.to_double() * self.tempo
+    let whole = advance.floor().to_int64()
+    self.analysis_frame += whole
+    self.analysis_fraction = advance - whole.to_double()
+  }
   self.compact()
 }
 
@@ -307,9 +360,14 @@ fn Processor::ready(self : Processor) -> Bool {
   } else {
     (self.hop * 2).to_int64()
   }
-  needed <= self.received &&
-  (self.emitted + self.hop.to_int64()).to_double() * self.tempo <=
-  self.received.to_double()
+  let clock_ready = if self.dynamic {
+    self.analysis_fraction + self.hop.to_double() * self.tempo <=
+    (self.received - self.analysis_frame).to_double()
+  } else {
+    (self.emitted + self.hop.to_int64()).to_double() * self.tempo <=
+    self.received.to_double()
+  }
+  needed <= self.received && clock_ready
 }
 
 ///|
@@ -327,7 +385,7 @@ pub fn Processor::push(
   if self.received > 1_000_000_000_000L - frames.to_int64() {
     raise @types.AudioError("stream exceeds exact analysis clock range")
   }
-  if self.tempo == 1.0 {
+  if self.tempo == 1.0 && !self.dynamic {
     self.received = self.received + frames.to_int64()
     self.emitted = self.received
     return samples.copy()
@@ -355,14 +413,21 @@ pub fn Processor::push(
 }
 
 ///|
-/// Drain with zero extension to exactly round(input/tempo) frames.
-/// Repeated finish calls return empty output; reset starts a new stream.
+/// Drain using zero extension. Fixed controls yield round(input/tempo) frames;
+/// dynamic controls finish the unconsumed source-clock distance at the current
+/// tempo. Repeated finish calls return empty output; reset starts a new stream.
 pub fn Processor::finish(self : Processor) -> Array[Double] {
   if self.finished {
     return []
   }
   self.finished = true
-  let target = @math.floor(self.received.to_double() / self.tempo + 0.5).to_int64()
+  let target = if self.dynamic {
+    let remaining = (self.received - self.analysis_frame).to_double() -
+      self.analysis_fraction
+    self.emitted + (remaining / self.tempo + 0.5).floor().max(0.0).to_int64()
+  } else {
+    @math.floor(self.received.to_double() / self.tempo + 0.5).to_int64()
+  }
   let output : Array[Double] = []
   while self.emitted < target {
     let remaining = target - self.emitted

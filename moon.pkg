@@ -3,4 +3,5 @@ import {
   "Ridge-Lab/moonstretch/stretch",
   "Ridge-Lab/moonstretch/rate" @rate_engine,
   "moonbitlang/core/math",
+  "moonbitlang/core/debug",
 }

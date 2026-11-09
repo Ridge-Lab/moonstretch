@@ -14,14 +14,14 @@
     <header class="site-header">
       <a class="brand" href="./" aria-label="MoonStretch 首页">
         <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 13v6m5-13v20m6-16v12m6-18v24m5-15v6"/></svg>
-        <span>MoonStretch</span><span class="version">0.1.0</span>
+        <span>MoonStretch</span><span class="version">0.2.0</span>
       </a>
       <nav aria-label="项目链接"><a href="https://github.com/Ridge-Lab/moonstretch">源代码 <span aria-hidden="true">↗</span></a><a href="https://mooncakes.io/docs/Ridge-Lab/moonstretch">Mooncakes <span aria-hidden="true">↗</span></a></nav>
     </header>
 
     <main>
       <section class="intro" aria-labelledby="title">
-        <div><p class="eyebrow">PURE MOONBIT · AUDIO PROCESSING</p><h1 id="title">速度与音调，<br class="mobile-break">分别调整。</h1><p class="lead">放慢旋律练习，调整伴奏音高，或让音频适合目标时长。<br class="desktop-break">试听处理前后的差别，再把结果保存为 WAV。</p></div>
+        <div><p class="eyebrow">PURE MOONBIT · AUDIO PROCESSING</p><h1 id="title">速度与音调，<br class="mobile-break">分别调整。</h1><p class="lead">放慢旋律练习，调整伴奏音高，或让音频适合目标时长。<br class="desktop-break">边听边调整，或生成完整结果保存为 WAV。</p></div>
         <div class="local-note"><span class="local-dot" aria-hidden="true"></span><div><strong>音频留在本地</strong><span>浏览器处理，无需上传</span></div></div>
       </section>
 
@@ -36,17 +36,25 @@
             <input id="audio-file" class="file-input" type="file" accept="audio/*,.wav,.flac,.ogg,.mp3,.m4a,.aac" aria-label="选择本地音频文件">
             <p class="small-note">最长 120 秒。高采样率、多声道及慢速输出另受浏览器内存限制。</p>
             <p class="demo-heading">也可以从一个小样开始</p>
-            <div class="demo-buttons"><button type="button" data-demo="melody">短旋律 <span>4s</span></button><button type="button" data-demo="click">节拍 <span>120 BPM</span></button><button type="button" data-demo="tone">正弦 <span>440 Hz</span></button></div>
+            <div class="demo-buttons"><button type="button" data-demo="melody">旋律 <span>12s</span></button><button type="button" data-demo="click">节拍 <span>120 BPM · 12s</span></button><button type="button" data-demo="tone">正弦 <span>440 Hz</span></button></div>
           </section>
 
           <section class="panel parameter-panel">
             <div class="section-heading"><span class="step">02</span><h2>调整参数</h2><button id="reset-controls" class="text-button" type="button">重置</button></div>
-            <div class="parameter"><div class="parameter-title"><label for="tempo">速度 <span>Tempo</span></label><output id="tempo-value" for="tempo">1.00×</output></div><input id="tempo" type="range" min="0.5" max="2" step="0.05" value="1"><div class="range-labels"><span>0.5× · 更慢</span><span>2× · 更快</span></div><p>改变时长，保持音高。</p></div>
+            <div class="quality-control"><label for="quality">处理预设</label><select id="quality"><option value="speech">语音</option><option value="balanced" selected>平衡</option><option value="music">音乐</option></select><p class="small-note">播放前选择。预设在处理窗口、计算量与延迟之间取舍。</p></div>
+            <div class="parameter"><div class="parameter-title"><label for="tempo">速度 <span>Tempo</span></label><output id="tempo-value" for="tempo">1.00×</output></div><input id="tempo" type="range" min="0.5" max="2" step="any" value="1"><div class="range-labels"><span>0.5× · 更慢</span><span>2× · 更快</span></div><p>改变时长，保持音高。</p></div>
             <div class="parameter"><div class="parameter-title"><label for="pitch">音调 <span>Pitch</span></label><output id="pitch-value" for="pitch">0 半音</output></div><input id="pitch" type="range" min="-12" max="12" step="0.5" value="0"><div class="range-labels"><span>−12 · 低八度</span><span>+12 · 高八度</span></div><p>改变音高，保持时长。</p></div>
             <div class="parameter"><div class="parameter-title"><label for="rate">播放倍率 <span>Rate</span></label><output id="rate-value" for="rate">1.00×</output></div><input id="rate" type="range" min="0.5" max="2" step="0.05" value="1"><div class="range-labels"><span>0.5×</span><span>2×</span></div><p>同时改变速度与音高，如同调整唱片转速。</p></div>
-            <div class="prediction"><span>预计输出时长</span><strong id="predicted-duration">—</strong></div>
+            <div class="prediction"><span>按当前参数预计时长</span><strong id="predicted-duration">—</strong></div>
             <button id="process" class="primary-button" type="button" disabled><span>处理音频</span><span aria-hidden="true">↗</span></button>
             <button id="cancel" class="cancel-button" type="button" hidden>取消处理</button>
+          </section>
+          <section class="panel bpm-panel" aria-labelledby="bpm-title">
+            <div class="section-heading"><span class="step">03</span><h2 id="bpm-title">匹配练习节拍</h2></div>
+            <button id="detect-bpm" class="secondary-button" type="button" disabled>估计音源 BPM</button>
+            <p id="bpm-result" class="small-note" role="status">适合有稳定节拍的音乐；纯音或节拍不明确时可能无法估计。</p>
+            <div class="bpm-target"><label for="target-bpm">目标 BPM</label><input id="target-bpm" type="number" min="30" max="300" step="1" value="100"><button id="apply-bpm" type="button" disabled>应用速度</button></div>
+            <p class="small-note">会计入当前 Rate；节拍估计可能出现半拍或倍拍，请结合试听判断。</p>
           </section>
         </aside>
 
@@ -58,6 +66,15 @@
             <div class="waveform-wrap"><canvas id="source-wave" aria-label="原始音频第一声道波形"></canvas><span class="wave-empty" id="source-empty">从一段声音开始</span><div class="wave-time"><span>0:00</span><span id="source-end">—</span></div></div>
             <audio id="source-audio" controls preload="metadata" aria-label="播放原始音频"></audio>
             <div class="audio-meta" id="source-meta"><span>采样率 —</span><span>声道 —</span><span>时长 —</span></div>
+          </article>
+
+          <article class="panel live-card" aria-labelledby="live-title">
+            <div class="audio-heading"><div><p class="eyebrow">STREAMING PREVIEW</p><h2 id="live-title">边听边调整</h2></div><span id="live-state" class="badge">等待播放</span></div>
+            <p class="filename">播放中移动速度、音调和倍率滑块，听见同一段声音的连续变化。</p>
+            <div class="live-actions"><button id="live-start" class="primary-button" type="button" disabled><span>开始流式试听</span><span aria-hidden="true">▶</span></button><button id="live-stop" class="secondary-button" type="button" disabled>停止</button></div>
+            <div class="live-progress-row"><progress id="live-progress" max="1" value="0" aria-label="流式处理进度"></progress><span id="live-time">0:00.00</span></div>
+            <div class="measurement-grid live-measurements"><div><span>算法前瞻</span><strong id="live-latency">—</strong></div><div><span>播放缓冲</span><strong id="live-buffer">—</strong></div><div><span>欠载块数</span><strong id="live-underruns">0</strong></div></div>
+            <p class="small-note" id="live-note">分块处理后立即送入播放器。调整会经过短暂缓冲后生效；导出文件使用一次固定参数。</p>
           </article>
 
           <div class="flow-indicator" aria-hidden="true"><span></span><b>MoonBit DSP</b><span></span><i>↓</i></div>
@@ -77,7 +94,7 @@
       <section class="details-section" aria-label="实现与使用范围">
         <div><h2>可以听见的运算</h2><p>WSOLA 在相近波形间寻找合适的衔接位置，以保留音高；带抗混叠滤波的 sinc 重采样改变频率。两者组合，独立控制速度与移调。</p></div>
         <div><h2>适用范围</h2><p>适合语音变速、练习与一般素材处理。极端参数及复杂打击乐可能产生可闻伪影；不提供共振峰保持、自动修音或音源分离。</p></div>
-        <details><summary>处理细节与限制</summary><p>输入使用浏览器解码后的采样率，支持 8–192 kHz、1–8 声道。最长 120 秒，最多 400 万个输入、800 万个预计输出采样值（声道计入）。</p><p>时长约为原始时长 ÷ (Tempo × Rate)；音高倍率为 2<sup>Pitch / 12</sup> × Rate。处理完成后显示实际帧数。波形展示第一声道，两个播放器始终以正常速度播放。</p><p>音频运算和 WAV 编码由 MoonBit 编译模块执行；Worker 负责后台调度，Web Audio 负责解码。三个小样由本页公式生成，不含第三方音频。浏览器示例是整段处理；库另提供持续分块处理接口。</p></details>
+        <details><summary>处理细节与限制</summary><p>输入使用浏览器解码后的采样率，支持 8–192 kHz、1–8 声道。最长 120 秒，最多 400 万个输入、800 万个预计输出采样值（声道计入）。</p><p>时长约为原始时长 ÷ (Tempo × Rate)；音高倍率为 2<sup>Pitch / 12</sup> × Rate。处理完成后显示实际帧数。波形展示第一声道，两个播放器始终以正常速度播放。</p><p>音频运算和 WAV 编码由 MoonBit 编译模块执行；Worker 负责后台调度，Web Audio 负责解码。三个小样由本页公式生成，不含第三方音频。流式试听按播放器需求分块处理，已排队的声音会先播放；导出模式使用整段固定参数。音源解码仍由浏览器一次完成，因此本页保留文件长度与内存限制。</p></details>
       </section>
     </main>
     <footer><span>MoonStretch <span class="footer-separator">/</span> Built with MoonBit</span><span><a href="licenses/THIRD_PARTY.md">开源与依赖许可</a> <span class="footer-separator">/</span> <a href="https://github.com/Ridge-Lab/moonstretch">文档与实现 ↗</a></span></footer>

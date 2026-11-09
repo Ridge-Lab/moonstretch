@@ -5,19 +5,51 @@ import {
   "Ridge-Lab/moonstretch/rate",
   "Ridge-Lab/moonstretch/stretch",
   "Ridge-Lab/moonstretch/types",
+  "moonbitlang/core/debug",
 }
 
 // Values
-pub fn process(Array[Double], Int32, Int32, tempo? : Double, pitch_semitones? : Double, rate? : Double) -> Array[Double] raise @types.AudioError
+pub fn process(Array[Double], Int32, Int32, tempo? : Double, pitch_semitones? : Double, rate? : Double, quality? : Quality) -> Array[Double] raise @types.AudioError
 
 // Errors
 
 // Types and methods
+pub struct Processor {
+  stream : Stream
+  queue : Array[Double]
+  mut head : Int32
+}
+pub fn Processor::buffered_frames(Self) -> Int32
+pub fn Processor::clear(Self) -> Unit
+pub fn Processor::controls(Self) -> (Double, Double, Double)
+pub fn Processor::finish(Self) -> Unit raise @types.AudioError
+pub fn Processor::input_frames(Self) -> Int64
+pub fn Processor::latency_frames(Self) -> Int32
+pub fn Processor::new(Int32, Int32, tempo? : Double, pitch_semitones? : Double, rate? : Double, quality? : Quality, adjustable? : Bool) -> Self raise @types.AudioError
+pub fn Processor::num_samples(Self) -> Int32
+pub fn Processor::output_frames(Self) -> Int64
+pub fn Processor::put_samples(Self, Array[Double]) -> Unit raise @types.AudioError
+pub fn Processor::read_into(Self, Array[Double], Int32, Int32) -> Int32 raise @types.AudioError
+pub fn Processor::receive_samples(Self, Int32) -> Array[Double] raise @types.AudioError
+pub fn Processor::set_controls(Self, tempo~ : Double, pitch_semitones~ : Double, rate~ : Double) -> Unit raise @types.AudioError
+
+pub(all) enum Quality {
+  Speech
+  Balanced
+  Music
+} derive(Eq, @debug.Debug)
+pub fn Quality::equal(Self, Self) -> Bool
+pub fn Quality::not_equal(Self, Self) -> Bool
+pub fn Quality::to_repr(Self) -> @debug.Repr
+
 pub struct Stream {
   sample_rate : Int32
   channels : Int32
-  tempo : Double
-  playback_rate : Double
+  mut tempo : Double
+  mut pitch_semitones : Double
+  mut playback_rate : Double
+  dynamic : Bool
+  quality : Quality
   stretch : @stretch.Processor
   resampler : @rate.Processor
   pending : Array[Double]
@@ -28,14 +60,18 @@ pub struct Stream {
 }
 pub fn Stream::buffered_frames(Self) -> Int32
 pub fn Stream::channels(Self) -> Int32
+pub fn Stream::controls(Self) -> (Double, Double, Double)
 pub fn Stream::finish(Self) -> Array[Double] raise @types.AudioError
 pub fn Stream::input_frames(Self) -> Int64
 pub fn Stream::latency_frames(Self) -> Int32
-pub fn Stream::new(Int32, Int32, tempo? : Double, pitch_semitones? : Double, rate? : Double) -> Self raise @types.AudioError
+pub fn Stream::new(Int32, Int32, tempo? : Double, pitch_semitones? : Double, rate? : Double, quality? : Quality) -> Self raise @types.AudioError
+pub fn Stream::new_live(Int32, Int32, tempo? : Double, pitch_semitones? : Double, rate? : Double, quality? : Quality) -> Self raise @types.AudioError
 pub fn Stream::output_frames(Self) -> Int64
 pub fn Stream::push(Self, Array[Double]) -> Array[Double] raise @types.AudioError
+pub fn Stream::quality(Self) -> Quality
 pub fn Stream::reset(Self) -> Unit
 pub fn Stream::sample_rate(Self) -> Int32
+pub fn Stream::set_controls(Self, tempo~ : Double, pitch_semitones~ : Double, rate~ : Double) -> Unit raise @types.AudioError
 
 // Type aliases
 

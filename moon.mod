@@ -1,6 +1,6 @@
 name = "Ridge-Lab/moonstretch"
 
-version = "0.1.1"
+version = "0.2.0"
 
 readme = "README.md"
 
@@ -10,7 +10,7 @@ license = "MIT"
 
 keywords = [ "audio", "time-stretch", "pitch-shift", "wsola", "dsp" ]
 
-description = "Streaming PCM time stretching and pitch shifting in pure MoonBit."
+description = "Controllable PCM streams, tempo/pitch/rate, player FIFO and BPM practice tools in pure MoonBit."
 
 preferred_target = "wasm-gc"
 
