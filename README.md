@@ -29,7 +29,7 @@ MoonBit 生态已有 MoonMel 的离线 `time_stretch`、`pitch_shift` 和节拍�
 使用 MoonBit **0.10.16 或更高版本**。CI 固定编译器和 core 为 `0.10.16+b1a0e846e`。Node.js 宿主工具需要 Node.js 20+，无 npm 第三方依赖。
 
 ```sh
-moon add Ridge-Lab/moonstretch@0.2.0
+moon add Ridge-Lab/moonstretch@0.2.1
 ```
 
 调用项目的 `moon.pkg`：

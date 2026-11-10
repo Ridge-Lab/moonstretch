@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+- Include the MoonBit core NOTICE and its upstream attribution statements alongside the license in source packages and browser distributions.
+- Fix the root license link in the browser's third-party notice page and document AI-assisted development accurately.
+- The audio algorithms and public API are unchanged from 0.2.0.
+
 ## 0.2.0
 
 - Correct the ecosystem comparison: MoonMel already supplies offline time stretching, pitch shifting and tempo analysis. Document the concrete streaming increment and a SoundTouch feature matrix.
