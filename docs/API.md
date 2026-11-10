@@ -1,6 +1,6 @@
 # API 与数据约定
 
-本文描述 0.2.0 的固定处理、连续控制、FIFO 和 BPM 接口。公共入口为 `Ridge-Lab/moonstretch`，WAV 适配包为 `Ridge-Lab/moonstretch/wav`，节拍分析包为 `Ridge-Lab/moonstretch/bpm`，错误类型位于 `Ridge-Lab/moonstretch/types`。完整签名以各包的 `pkg.generated.mbti` 为准。
+本文描述 0.3.0 的固定处理、连续控制、FIFO、BPM 与文件管线接口。公共入口为 `Ridge-Lab/moonstretch`，WAV 适配包为 `Ridge-Lab/moonstretch/wav`，节拍分析包为 `Ridge-Lab/moonstretch/bpm`，错误类型位于 `Ridge-Lab/moonstretch/types`。完整签名以各包的 `pkg.generated.mbti` 为准。
 
 ## PCM 与控制参数
 

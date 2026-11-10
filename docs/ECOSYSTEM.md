@@ -91,7 +91,18 @@ MoonBit processor), and the runnable `examples/player` and `examples/practice`.
 Published versions and CI results are linked from the README; source capabilities
 should not be inferred to exist in an older installed package.
 
-The SoundTouch CLI accepts a broader parameter range than MoonStretch 0.2.0.
+Version 0.3.0 additionally connects the fixed-control FIFO to a seekable WAV file
+pipeline. It reads bounded blocks, delegates sample decoding/encoding to the
+existing MoonBit codec and drains processed PCM immediately. The CLI's default
+and standard-stream modes remain buffered. `verify_stream_cli.mjs` measures
+first-output position and retained PCM on different recording lengths; it also
+checks complete-file agreement, malformed containers and failed-output cleanup.
+The verification harness runs the same checks locally and in CI, and the
+SoundTouch report pairs both implementations on identical inputs and controls.
+These are reproducible integration/verification improvements, not evidence of
+third-party adoption or superior listening quality.
+
+The SoundTouch CLI accepts a broader parameter range than MoonStretch 0.3.0.
 MoonStretch must publish its own supported ranges instead of claiming all
 SoundTouch settings or sample formats are compatible. Its API is MoonBit-native;
 it does not promise SoundTouch binary/API compatibility, identical output samples,
