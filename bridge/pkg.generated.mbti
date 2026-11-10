@@ -11,6 +11,8 @@ pub fn analyze_bpm(Array[Double], Int32, Int32, Double, Double) -> String
 
 pub fn encode_wav(Array[Double], Int32, Int32) -> Bytes
 
+pub fn fixed_create(Int32, Int32, Double, Double, Double, String) -> @moonstretch.Processor
+
 pub fn live_clear(@moonstretch.Processor) -> Unit
 
 pub fn live_create(Int32, Int32, Double, Double, Double, String) -> @moonstretch.Processor

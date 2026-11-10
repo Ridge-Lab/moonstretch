@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
+import { streamWav } from './stream_wav.mjs';
 import {
   wav_decode, wav_samples, wav_sample_rate, wav_channels,
   transform_pcm_quality, encode_wav, analyze_bpm,
@@ -11,13 +12,15 @@ const usage = `Usage: node scripts/moonstretch.mjs INPUT.wav [OUTPUT.wav] [optio
   --pitch -12..12      Semitone transposition
   --rate 0.5..2        Coupled speed/pitch control
   --quality speech|balanced|music
+  --stream             Incremental file-to-file processing, bounded PCM buffers
   --detect-bpm         Report a BPM estimate; OUTPUT may be omitted
   --target-bpm 30..300 Match a target beat rate (requires OUTPUT)
   --source-bpm 30..300 Use a known source tempo with --target-bpm
   --bpm-min 30..300    Search lower bound (default 60)
   --bpm-max 30..300    Search upper bound (default 200)
 Use - for stdin/stdout WAV bytes. Diagnostics go to stderr.
-WAV input/output is buffered by this CLI; the library has incremental PCM APIs.`;
+Default mode buffers WAV input/output. --stream requires regular file paths;
+automatic BPM detection and stdin/stdout use the default mode.`;
 
 function number(text, key, lo, hi) {
   const value = Number(text);
@@ -40,6 +43,7 @@ try {
       if (seen.has(key)) throw new Error(`Unknown or repeated option: ${key}`);
       seen.add(key);
       if (key === '--detect-bpm') { options.detect = true; continue; }
+      if (key === '--stream') { options.stream = true; continue; }
       const value = args[++i];
       if (value === undefined) throw new Error(`Missing value for ${key}`);
       switch (key) {
@@ -64,32 +68,46 @@ try {
     if (options.min >= options.max) throw new Error('--bpm-min must be less than --bpm-max');
     if (output && input !== '-' && output !== '-' && path.resolve(input) === path.resolve(output))
       throw new Error('Input and output must be different files.');
-    const audio = wav_decode(fs.readFileSync(input === '-' ? 0 : input));
-    const samples = wav_samples(audio);
-    const sampleRate = wav_sample_rate(audio);
-    const channels = wav_channels(audio);
-    const estimate = options.detect || (options.target && !options.source)
-      ? JSON.parse(analyze_bpm(samples, sampleRate, channels, options.min, options.max)) : null;
-    const sourceBpm = options.source ?? estimate?.bpm;
-    if (options.target) {
-      if (!sourceBpm) throw new Error('No reliable periodic tempo found. Supply a known --source-bpm or different audio.');
-      options.tempo = options.target / (sourceBpm * options.rate);
-      if (options.tempo < 0.5 || options.tempo > 2)
-        throw new Error('Target BPM requires tempo outside 0.5..2; choose a closer target or another rate.');
-    }
-    if (!output) {
-      console.log(JSON.stringify({ estimate, sample_rate: sampleRate, channels, input_frames: samples.length / channels }));
-    } else {
-      const transformed = transform_pcm_quality(samples, sampleRate, channels, options.tempo, options.pitch, options.rate, options.quality);
-      const result = encode_wav(transformed, sampleRate, channels);
-      fs.writeFileSync(output === '-' ? 1 : output, result, output === '-' ? undefined : { flag: 'wx' });
-      const report = {
-        input_frames: samples.length / channels, output_frames: transformed.length / channels,
-        sample_rate: sampleRate, channels, tempo: options.tempo, pitch: options.pitch,
-        rate: options.rate, quality: options.quality,
-        ...(options.detect || options.target ? { estimate, source_bpm: sourceBpm ?? null, target_bpm: options.target ?? null } : {}),
-      };
+    if (options.stream) {
+      if (!output || input === '-' || output === '-') throw new Error('--stream requires input and output file paths');
+      if (options.detect || (options.target && !options.source))
+        throw new Error('--stream requires known --source-bpm for tempo matching; automatic BPM detection uses the default mode');
+      if (options.target) {
+        options.tempo = options.target / (options.source * options.rate);
+        if (options.tempo < 0.5 || options.tempo > 2)
+          throw new Error('Target BPM requires tempo outside 0.5..2; choose a closer target or another rate.');
+      }
+      const report = streamWav(input, output, options);
+      if (options.target) Object.assign(report, { source_bpm: options.source, target_bpm: options.target });
       process.stderr.write(`${JSON.stringify(report)}\n`);
+    } else {
+      const audio = wav_decode(fs.readFileSync(input === '-' ? 0 : input));
+      const samples = wav_samples(audio);
+      const sampleRate = wav_sample_rate(audio);
+      const channels = wav_channels(audio);
+      const estimate = options.detect || (options.target && !options.source)
+        ? JSON.parse(analyze_bpm(samples, sampleRate, channels, options.min, options.max)) : null;
+      const sourceBpm = options.source ?? estimate?.bpm;
+      if (options.target) {
+        if (!sourceBpm) throw new Error('No reliable periodic tempo found. Supply a known --source-bpm or different audio.');
+        options.tempo = options.target / (sourceBpm * options.rate);
+        if (options.tempo < 0.5 || options.tempo > 2)
+          throw new Error('Target BPM requires tempo outside 0.5..2; choose a closer target or another rate.');
+      }
+      if (!output) {
+        console.log(JSON.stringify({ estimate, sample_rate: sampleRate, channels, input_frames: samples.length / channels }));
+      } else {
+        const transformed = transform_pcm_quality(samples, sampleRate, channels, options.tempo, options.pitch, options.rate, options.quality);
+        const result = encode_wav(transformed, sampleRate, channels);
+        fs.writeFileSync(output === '-' ? 1 : output, result, output === '-' ? undefined : { flag: 'wx' });
+        const report = {
+          input_frames: samples.length / channels, output_frames: transformed.length / channels,
+          sample_rate: sampleRate, channels, tempo: options.tempo, pitch: options.pitch,
+          rate: options.rate, quality: options.quality,
+          ...(options.detect || options.target ? { estimate, source_bpm: sourceBpm ?? null, target_bpm: options.target ?? null } : {}),
+        };
+        process.stderr.write(`${JSON.stringify(report)}\n`);
+      }
     }
   }
 } catch (error) {

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0
+
+- Add an incremental file-to-file WAV CLI path with fixed-control FIFO, bounded block reads, immediate output consumption, exact duration and cleanup after failure. Reuse the MoonBit WAV codec instead of implementing a second sample codec in JavaScript.
+- Add seeded streaming state-machine regressions and strict FOURCC byte validation, including malformed high-bit identifiers discovered by independent review of the new file path.
+- Share a single verification entry point between local development and CI, with source fingerprints, per-task logs, report hashes, explicit skipped checks and failure-propagation regressions.
+- Check independent verifier sensitivity with selected injected faults and a tolerated-roundoff negative control; pair SoundTouch and MoonStretch measurements against analytical expectations.
+- Make missing distribution attribution a web-build failure and preserve the 0.2.1 dependency-notice correction.
+
 ## 0.2.1
 
 - Include the MoonBit core NOTICE and its upstream attribution statements alongside the license in source packages and browser distributions.

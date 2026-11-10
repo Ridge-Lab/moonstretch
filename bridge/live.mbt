@@ -80,6 +80,30 @@ pub fn live_create(
 }
 
 ///|
+/// Fixed-control FIFO for file pipelines requiring the exact target duration.
+pub fn fixed_create(
+  sample_rate : Int32,
+  channels : Int32,
+  tempo : Double,
+  pitch : Double,
+  rate : Double,
+  quality : String,
+) -> @moonstretch.Processor {
+  host_format(sample_rate, channels)
+  @moonstretch.Processor::new(
+    sample_rate,
+    channels,
+    tempo~,
+    pitch_semitones=pitch,
+    rate~,
+    quality=quality_named(quality),
+    adjustable=false,
+  ) catch {
+    error => fail(explain(error))
+  }
+}
+
+///|
 pub fn live_put(
   processor : @moonstretch.Processor,
   samples : Array[Double],

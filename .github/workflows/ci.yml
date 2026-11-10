@@ -11,135 +11,50 @@ permissions:
   contents: read
 
 jobs:
-  runtime:
-    name: Linux (${{ matrix.target }})
-    runs-on: ubuntu-latest
+  verification:
+    name: Verify (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        target: [wasm, wasm-gc, js, native]
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-      - uses: hustcer/setup-moonbit@v1.22
+      - uses: actions/setup-python@v5
         with:
-          version: "0.10.16+b1a0e846e"
-          core-version: "0.10.16+b1a0e846e"
-      - run: moon version --all
-      - run: moon update
-      - run: moon fmt --check
-      - run: moon check --target ${{ matrix.target }} --deny-warn
-      - run: moon test --target ${{ matrix.target }} --deny-warn
-      - run: moon build --target ${{ matrix.target }} --release --deny-warn
-      - run: moon run --target ${{ matrix.target }} examples/basic
-      - run: moon run --target ${{ matrix.target }} examples/player
-      - run: moon run --target ${{ matrix.target }} examples/practice
-
-  windows:
-    name: Windows (${{ matrix.target }})
-    runs-on: windows-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        target: [js, native]
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
+          python-version: "3.12"
       - uses: hustcer/setup-moonbit@v1.22
         with:
           version: "0.10.16+b1a0e846e"
           core-version: "0.10.16+b1a0e846e"
       - uses: ilammy/msvc-dev-cmd@v1
-        if: matrix.target == 'native'
+        if: runner.os == 'Windows'
         with:
           arch: x64
-      - run: moon version --all
-      - run: moon update
-      - run: moon fmt --check
-      - run: moon check --target ${{ matrix.target }} --deny-warn
-      - run: moon test --target ${{ matrix.target }} --deny-warn
-      - run: moon build --target ${{ matrix.target }} --release --deny-warn
-      - run: moon run --target ${{ matrix.target }} examples/basic
-      - run: moon run --target ${{ matrix.target }} examples/player
-      - run: moon run --target ${{ matrix.target }} examples/practice
-      - uses: actions/setup-python@v5
-        if: matrix.target == 'js'
-        with:
-          python-version: "3.12"
-      - name: Independent PCM measurements
-        if: matrix.target == 'js'
-        run: python scripts/audio_quality.py --output work/quality-windows.json -- node scripts/quality_driver.mjs
-      - name: WAV format and command-line interoperability
-        if: matrix.target == 'js'
-        run: node scripts/verify_wav.mjs
-      - name: Continuous controls and independent BPM workflows
-        if: matrix.target == 'js'
-        run: |
-          node scripts/verify_streaming.mjs
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node scripts/verify_bpm.mjs
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node scripts/verify_host_boundaries.mjs
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node scripts/build_web.mjs
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node --test web/stream-protocol.test.mjs web/stream-engine.test.mjs
-      - uses: actions/upload-artifact@v4
-        if: matrix.target == 'js'
-        with:
-          name: quality-windows
-          path: |
-            work/quality-windows.json
-            work/streaming-quality.json
-            work/bpm-quality.json
-
-  audio-quality:
-    name: Independent audio properties
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - uses: hustcer/setup-moonbit@v1.22
-        with:
-          version: "0.10.16+b1a0e846e"
-          core-version: "0.10.16+b1a0e846e"
-      - name: Install the independent SoundTouch command-line reference
+      - name: Install independent SoundTouch reference
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y soundstretch
           dpkg-query -W soundstretch libsoundtouch1
       - run: moon update
-      - run: moon build --target js --release --deny-warn
-      - name: WAV format and command-line interoperability
-        run: node scripts/verify_wav.mjs
-      - name: Measure duration, pitch, channels, streaming and alias rejection
-        run: python scripts/audio_quality.py --soundstretch soundstretch --output work/quality-linux.json -- node scripts/quality_driver.mjs
-      - name: Live controls, presets and tempo matching
-        run: |
-          node scripts/verify_streaming.mjs
-          node scripts/verify_bpm.mjs
-          node scripts/verify_host_boundaries.mjs
-          node scripts/build_web.mjs
-          node --test web/stream-protocol.test.mjs web/stream-engine.test.mjs
-      - name: Record block processing budgets on this runner
-        run: node scripts/benchmark_streaming.mjs
+      - name: Full Linux verification with independent reference
+        if: runner.os == 'Linux'
+        run: python scripts/verify.py --profile full --targets js wasm wasm-gc native --soundstretch soundstretch
+      - name: Full Windows verification
+        if: runner.os == 'Windows'
+        run: python scripts/verify.py --profile full --targets js native
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: quality-linux
+          name: verification-${{ runner.os }}
           path: |
-            work/quality-linux.json
-            work/streaming-quality.json
-            work/bpm-quality.json
-            work/streaming-benchmark.json
+            work/verification/*/*.json
+            work/verification/*/*.log
+          if-no-files-found: warn
 
   published-package:
     name: Install public Mooncakes package
@@ -157,4 +72,11 @@ jobs:
         with:
           version: "0.10.16+b1a0e846e"
           core-version: "0.10.16+b1a0e846e"
-      - run: python scripts/verify_release.py --targets js wasm wasm-gc native
+      - run: python scripts/verify.py --profile release --version "${GITHUB_REF_NAME#v}" --targets js wasm wasm-gc native
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: public-package-verification
+          path: |
+            work/verification/*/summary.json
+            work/verification/*/*.log

@@ -9,10 +9,12 @@ properties rather than samples. This is a regression suite, not a listening test
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import pathlib
 import random
+import shutil
 import struct
 import subprocess
 import tempfile
@@ -82,23 +84,94 @@ def verify_frequency(output: list[float], expected: float) -> dict:
             "relative_error": relative_error, "rms": level}
 
 
+def pcm16_source(samples: list[float]) -> list[float]:
+    """One common representable input for the float API and PCM16 reference CLI."""
+    return [round(max(-1, min(1, x)) * 32767) / 32768 for x in samples]
+
+
 def reference(executable: str, directory: pathlib.Path, source: list[float],
-              tempo: float, pitch: float, rate: float) -> list[float]:
+              tempo: float, pitch: float, rate: float, channels: int = 1,
+              metadata: dict | None = None) -> list[float]:
     input_path, output_path = directory / "input.wav", directory / "output.wav"
     with wave.open(str(input_path), "wb") as writer:
-        writer.setparams((1, 2, SAMPLE_RATE, 0, "NONE", "not compressed"))
+        writer.setparams((channels, 2, SAMPLE_RATE, 0, "NONE", "not compressed"))
         writer.writeframes(struct.pack("<" + "h" * len(source),
-                                       *(round(max(-1, min(1, x)) * 32767) for x in source)))
+                                       *(max(-32768, min(32767, round(x * 32768))) for x in source)))
     completed = subprocess.run([executable, str(input_path), str(output_path),
                                 f"-tempo={(tempo - 1) * 100:.8f}", f"-pitch={pitch:.8f}",
                                 f"-rate={(rate - 1) * 100:.8f}"],
                                capture_output=True, text=True, timeout=120)
     assert completed.returncode == 0, f"SoundTouch reference failed: {completed.stderr[-2000:]}"
+    if metadata is not None and "reported_banner" not in metadata:
+        # Keep the actual binary's output, rather than assuming the apt package
+        # version. CI separately records dpkg-query for package provenance.
+        metadata["reported_banner"] = "\n".join(
+            line.strip() for line in (completed.stderr + "\n" + completed.stdout).splitlines()
+            if "SoundStretch" in line or "SoundTouch" in line)[:1000]
     with wave.open(str(output_path), "rb") as reader:
-        assert reader.getnchannels() == 1 and reader.getsampwidth() == 2
+        assert reader.getnchannels() == channels and reader.getsampwidth() == 2
         assert reader.getframerate() == SAMPLE_RATE
         raw = reader.readframes(reader.getnframes())
     return [x / 32768 for x in struct.unpack("<" + "h" * (len(raw) // 2), raw)]
+
+
+def paired_reference(command: list[str], executable: str, directory: pathlib.Path,
+                     metadata: dict) -> list[dict]:
+    """Same input/parameters, independent physical checks, no sample equality."""
+    rows = []
+    configurations = [
+        ("tempo", [440], 0.75, 0.0, 1.0),
+        ("pitch", [440], 1.0, 7.0, 1.0),
+        ("rate", [440], 1.0, 0.0, 1.5),
+        ("distinct_stereo", [330, 660], 1.5, 0.0, 1.0),
+    ]
+    for label, frequencies, tempo, pitch, rate in configurations:
+        channels = len(frequencies)
+        source = pcm16_source([value for frame in zip(*(tone(f) for f in frequencies)) for value in frame])
+        ours = invoke(command, source, channels=channels, tempo=tempo, pitch=pitch, rate=rate)
+        other = reference(executable, directory, source, tempo, pitch, rate, channels, metadata)
+        expected_frames = FRAME_COUNT / (tempo * rate)
+        assert abs(len(other) / channels - expected_frames) <= 2, (
+            "reference duration", len(other) / channels, expected_frames)
+        expected_hz = [f * 2 ** (pitch / 12) * rate for f in frequencies]
+        ours_metrics = [verify_frequency(ours[ch::channels], expected_hz[ch]) for ch in range(channels)]
+        other_metrics = [verify_frequency(other[ch::channels], expected_hz[ch]) for ch in range(channels)]
+        rows.append({"case": "soundtouch_paired_tones", "scenario": label, "channels": channels,
+                     "tempo": tempo, "pitch_semitones": pitch, "rate": rate,
+                     "common_input": "identical PCM16-representable samples", "input_frames": FRAME_COUNT,
+                     "expected_duration_frames": expected_frames, "sample_equality_required": False,
+                     "moonstretch": {"output_frames": len(ours) // channels, "channels": ours_metrics},
+                     "soundtouch": {"output_frames": len(other) // channels, "channels": other_metrics},
+                     "difference_moonstretch_minus_soundtouch": {
+                         "output_frames": (len(ours) - len(other)) // channels,
+                         "frequency_hz": [a["measured_hz"] - b["measured_hz"] for a, b in zip(ours_metrics, other_metrics)],
+                         "rms": [a["rms"] - b["rms"] for a, b in zip(ours_metrics, other_metrics)]}})
+    source = pcm16_source(timed_bursts())
+    tempo, pitch, rate = 0.75, 0.0, 1.0
+    ours = invoke(command, source, tempo=tempo, pitch=pitch, rate=rate)
+    other = reference(executable, directory, source, tempo, pitch, rate, metadata=metadata)
+    expected_frames = len(source) / (tempo * rate)
+    assert abs(len(other) - expected_frames) <= 2, ("reference duration", len(other), expected_frames)
+    expected_seconds = [second / tempo for second in [1, 2, 3]]
+    measured = {}
+    for name, output in [("moonstretch", ours), ("soundtouch", other)]:
+        centers = burst_centers(output)
+        assert len(centers) == 3, ("lost or duplicated audio burst", name, centers)
+        error = max(abs(actual - expected) for actual, expected in zip(centers, expected_seconds))
+        assert error <= 0.08, ("burst timing error seconds", name, error, centers, expected_seconds)
+        measured[name] = {"output_frames": len(output), "burst_centers_seconds": centers,
+                          "maximum_timing_error_seconds": error, "rms": rms(output)}
+    rows.append({"case": "soundtouch_paired_bursts", "channels": 1,
+                 "tempo": tempo, "pitch_semitones": pitch, "rate": rate,
+                 "common_input": "identical PCM16-representable samples", "input_frames": len(source),
+                 "expected_duration_frames": expected_frames, "expected_burst_centers_seconds": expected_seconds,
+                 "burst_timing_limit_seconds": 0.08, "sample_equality_required": False, **measured,
+                 "difference_moonstretch_minus_soundtouch": {
+                     "output_frames": len(ours) - len(other),
+                     "burst_centers_seconds": [a - b for a, b in zip(
+                         measured["moonstretch"]["burst_centers_seconds"], measured["soundtouch"]["burst_centers_seconds"])],
+                     "rms": measured["moonstretch"]["rms"] - measured["soundtouch"]["rms"]}})
+    return rows
 
 
 def timed_bursts() -> list[float]:
@@ -136,11 +209,28 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=pathlib.Path, required=True)
     parser.add_argument("--soundstretch", help="optional independent SoundTouch executable")
+    parser.add_argument("--require-soundtouch", action="store_true",
+                        help="require paired reference checks; default executable: soundstretch")
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
     if not command:
         parser.error("supply the JSON quality driver command after --")
+    reference_status = {"status": "skipped", "reason": "SoundTouch comparison not requested"}
+    if args.require_soundtouch:
+        args.soundstretch = args.soundstretch or "soundstretch"
+    if args.soundstretch:
+        resolved_reference = shutil.which(args.soundstretch)
+        if resolved_reference is None:
+            parser.error(f"requested SoundTouch executable not found: {args.soundstretch}")
+        args.soundstretch = resolved_reference
+        reference_status = {"status": "pending", "executable": resolved_reference,
+                            "executable_sha256": hashlib.sha256(pathlib.Path(resolved_reference).read_bytes()).hexdigest(),
+                            "frequency_relative_tolerance": 0.015,
+                            "soundtouch_duration_tolerance_frames": 2,
+                            "moonstretch_duration_tolerance_frames": 0,
+                            "duration_rounding": "MoonStretch uses floor(expected_frames + 0.5)",
+                            "interpretation": "Paired physical measurements; neither listening quality nor speed ranking."}
     results, source = [], tone(440)
     random_source = random.Random(20261102)
     noise = [random_source.uniform(-0.7, 0.7) for _ in range(4096)]
@@ -215,16 +305,11 @@ def main() -> None:
     if args.soundstretch:
         # All temporary audio goes beside the explicit report path, not system Temp.
         with tempfile.TemporaryDirectory(prefix="soundtouch-", dir=args.output.parent) as temporary:
-            for tempo, pitch, rate in [(0.75, 0.0, 1.0), (1.0, 7.0, 1.0), (1.0, 0.0, 1.5)]:
-                ref = reference(args.soundstretch, pathlib.Path(temporary), source, tempo, pitch, rate)
-                expected_frames = FRAME_COUNT / (tempo * rate)
-                assert abs(len(ref) - expected_frames) <= 2, ("reference duration", len(ref), expected_frames)
-                row = {"case": "soundtouch_reference", "tempo": tempo, "pitch_semitones": pitch,
-                       "rate": rate, "output_frames": len(ref), "sample_equality_required": False}
-                row.update(verify_frequency(ref, 440 * 2 ** (pitch / 12) * rate))
-                results.append(row)
-    report = {"schema_version": 1, "sample_rate": SAMPLE_RATE, "tone_frames": FRAME_COUNT,
-              "frequency_relative_tolerance": 0.015, "cases": results,
+            results.extend(paired_reference(command, args.soundstretch, pathlib.Path(temporary), reference_status))
+        reference_status["status"] = "passed"
+        reference_status["paired_cases"] = 5
+    report = {"schema_version": 2, "sample_rate": SAMPLE_RATE, "tone_frames": FRAME_COUNT,
+              "frequency_relative_tolerance": 0.015, "soundtouch": reference_status, "cases": results,
               "interpretation": "Numerical regression checks, not a perceptual-quality benchmark."}
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(f"Passed {len(results)} independent PCM checks; report: {args.output}")

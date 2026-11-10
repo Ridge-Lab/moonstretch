@@ -138,8 +138,12 @@ node scripts/moonstretch.mjs beat.wav matched.wav --target-bpm 120 --source-bpm 
 
 CLI 支持 `--quality speech|balanced|music`、`--detect-bpm`、`--target-bpm`、`--source-bpm`、`--bpm-min` 和 `--bpm-max`。目标 BPM 与显式 `--tempo` 互斥；检测失败且未提供 source BPM 时拒绝自动变速。用 `-` 表示 WAV 字节的标准输入或输出。纯检测将 JSON 写到 stdout；变换时诊断写到 stderr，避免混入 WAV 数据。CLI 不覆盖已有输出文件。标准流接口仍整体缓存文件，不是增量 WAV 解码器。
 
+`--stream` 为普通文件提供分块路径：最多读取 4,096 帧 PCM，复用 MoonBit WAV 适配器解码，使用固定配置 FIFO 并及时取数，逐块编码为 24-bit PCM。未知 RIFF 元数据按偏移跳过；单个 fmt 块限制为 64 KiB，输入必须能 seek，输出受 RIFF 32 位长度限制。它不支持 stdin/stdout 或自动 BPM 检测，但可用已知 `--source-bpm` 匹配目标。非法尾部样本或读取错误会删除本次新建的未完成输出。报告包含首批输出位置、最大输入读取字节数与观测到的保留 PCM 帧数，这些不是整个进程 RSS 指标。
+
 ## 宿主桥接
 
 原有 `run`、`transform_pcm`、`transform_wav`、`encode_wav` 保留。`transform_pcm_quality` 接受质量名称；`live_create / live_put / live_read / live_set_controls / live_finish / live_clear / live_stats` 提供同一 FIFO 的宿主入口。`live_read` 返回新数组，不是 `read_into` 的零拷贝别名。`analyze_bpm` 返回 JSON 对象字符串或 `"null"`；`wav_decode` 与相关访问函数用于已解码 PCM 的复用。
+
+`fixed_create` 的参数与 `live_create` 相同，但采用 `adjustable=false`，通过同一套 `live_put/read/finish/stats` 取数并保持固定参数的准确帧数；对该实例调用 `live_set_controls` 会报错。它用于文件管线，不会改变原有连续控制入口。
 
 `run(request_json)` 保留固定 Balanced 配置的数值测试协议，字段为 sample_rate、channels、samples、tempo、pitch_semitones、rate，以及 1–1048576 范围的 chunk_frames；结果包含样本、格式和缓冲/前瞻信息，失败为 error 对象。带类型的其他 JS 导出验证失败时抛出宿主异常。MoonBit 调用方应优先使用类型化 API，宿主只承担 I/O、UI 和设备调度，DSP 位于 MoonBit。

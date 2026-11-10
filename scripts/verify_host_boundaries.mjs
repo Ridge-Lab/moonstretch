@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import {
-  analyze_bpm, transform_pcm, transform_pcm_quality, encode_wav, live_create, live_put, live_read,
-  live_finish, live_clear, live_stats,
+  analyze_bpm, transform_pcm, transform_pcm_quality, encode_wav, live_create, fixed_create, live_put, live_read,
+  live_finish, live_clear, live_stats, live_set_controls,
 } from '../_build/js/release/build/bridge/bridge.js';
 
 let checks = 0;
@@ -29,10 +29,16 @@ for (const [rate, channels] of [
   [8000, 1.5], [8000, NaN], [8000, Infinity], [8000, 0], [8000, 9],
 ]) {
   assert.throws(() => live_create(rate, channels, 1, 0, 1, 'balanced'), /finite integer/);
+  assert.throws(() => fixed_create(rate, channels, 1, 0, 1, 'balanced'), /finite integer/);
   assert.throws(() => transform_pcm_quality([], rate, channels, 1, 0, 1, 'balanced'), /finite integer/);
   assert.throws(() => analyze_bpm([], rate, channels, 60, 200), /finite integer/);
   assert.throws(() => transform_pcm([], rate, channels, 1, 0, 1), /finite integer/);
   assert.throws(() => encode_wav([], rate, channels), /finite integer/);
-  checks += 5;
+  checks += 6;
 }
+const fixed = fixed_create(8000, 1, 0.75, 3, 1, 'speech');
+const fixedBefore = JSON.parse(live_stats(fixed));
+assert.throws(() => live_set_controls(fixed, 1, 0, 1), /fixed|adjustable|live/);
+assert.deepEqual(JSON.parse(live_stats(fixed)), fixedBefore);
+checks++;
 console.log(`Verified ${checks} JavaScript host integer-boundary and FIFO alignment checks.`);

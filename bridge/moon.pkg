@@ -17,6 +17,7 @@ options(
         "transform_wav",
         "encode_wav",
         "live_create",
+        "fixed_create",
         "live_put",
         "live_read",
         "live_finish",

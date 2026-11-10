@@ -5,7 +5,7 @@ import pathlib
 import subprocess
 
 p = argparse.ArgumentParser()
-p.add_argument('--version', default='0.2.1')
+p.add_argument('--version', default='0.3.0')
 p.add_argument('--targets', nargs='+', default=['js', 'wasm', 'wasm-gc', 'native'])
 p.add_argument('--output', default='work/release-consumer')
 a = p.parse_args()

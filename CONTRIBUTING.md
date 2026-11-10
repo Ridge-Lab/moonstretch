@@ -2,27 +2,30 @@
 
 优先提交可以独立复现的音频问题和真实使用反馈。报告中请给出 MoonStretch 版本、MoonBit 版本、编译后端、采样率、声道数、控制参数、分块方式、预期和实际行为。录音无法公开时，可提供能复现问题的合成信号；不要提交没有分发权的音乐或录音。
 
-## 本地验证
+## 开发与验证
 
 使用 MoonBit 0.10.16+。Node.js 宿主工具要求 20+，独立检查脚本使用 Python 3.10+ 标准库。
 
 ```sh
 moon update
-moon fmt
-moon check --target all --deny-warn
-moon test --target all --deny-warn
-moon build --target all --release --deny-warn
-moon info
-moon run --target wasm-gc examples/basic
-moon build --target js --release
-python scripts/audio_quality.py --output work/quality.json -- node scripts/quality_driver.mjs
+python scripts/verify.py --profile quick --targets js
+python scripts/verify.py --profile full --targets js wasm wasm-gc native
 ```
 
-检查 `moon info` 生成的接口变化，确认兼容性和文档。Windows Native 需要配置 MSVC；没有本地 C 编译器时可以先验证 JS、Wasm 和 Wasm GC，并查看 CI 的 Windows Native 结果，不能将未执行项记为通过。
+每次修改遵循一条短流程：写出可复现的输入与预期行为 → 用旧实现确认失败 → 修改实现 → 跑针对性回归与 quick → 涉及公开 API、DSP 或发布时跑 full，并审查结果与来源。接口修改另运行 `moon info`，检查生成接口差异，再同步对应 API 文档；验证入口本身不会改格式、接口或安装工具链。
+
+`quick` 包含格式、所选后端严格检查/测试/构建、JS 主机边界、持续调参、流式 WAV CLI 与真实浏览器引擎/队列协议检查。`full` 增加三个示例、独立 PCM 性质、WAV、BPM、故障敏感性验证和块级性能。已有脚本仍可单独运行以缩小故障范围。所有命令失败都使入口返回非零；依赖失败的任务标记为 skipped，不算通过。摘要中的命令数量不是独立测试或断言数量，具体覆盖与结果见对应日志。
+
+每次运行在 `work/verification/<UTC时间>-<随机标识>/` 保存命令日志、独立数值报告及 `summary.json`。摘要包含 commit、工作区是否有改动、实际源码指纹、工具链、目标后端和每步状态；运行中源码改变会使结果失败。不要从其他运行复制成功报告，也不要把脏工作区的结果当成仅针对该 commit 的结果。验证器临时文件留在同一目录；默认位置跟随项目所在磁盘。
+
+SoundTouch 对照需显式提供已有可执行程序：`python scripts/verify.py --profile full --targets js --soundstretch soundstretch`。未指定时该项明确跳过，不能声称已对照。Windows Native 需要 MSVC 开发环境；没有本地 C 编译器时选择 JS/Wasm/Wasm GC，再查看 CI 的 Native 结果，不能将未执行项记为通过。
+
+发布后执行 `python scripts/verify.py --profile release --version 0.3.0 --targets js wasm wasm-gc native`（替换为实际发布版本）。它为本次运行创建新消费者目录，从公开注册表安装并验证，不接受本地路径替代公开包，也不会自动发布。发布检查依赖已有工具链和网络。
 
 ## 变更要求
 
 - DSP 修改应有能发现旧问题的回归用例，并验证时长、频率、通道关系和分块不变性。不要仅用固定输出快照证明算法正确。
+- 对关键修复保留失败输入、最小复现命令和失败原因；故意注入错误来验证断言时，在隔离副本执行，记录实际检测结果。随机检查固定种子并输出重现信息；不将未命中的错误说成已被测试覆盖。
 - 变更公开参数或生命周期时，同步更新 README、API 与算法文档。不要静默扩大兼容承诺。
 - 新增录音、依赖、算法参考和复制代码必须记录来源及许可证。算法理论借鉴与源码移植应分别说明。
 - 性能报告保留命令、版本、输入、硬件和原始测量；主观音质结论需要相应听评证据。
